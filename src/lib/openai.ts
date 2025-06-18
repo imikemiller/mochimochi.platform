@@ -1,17 +1,20 @@
 import OpenAI from "openai";
 import type { Question } from "../types";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export class OpenAIService {
+  private openai: OpenAI;
+
+  constructor() {
+    this.openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
   // Generate questions based on game developer goals
   async generateQuestions(
     goals: string,
     count: number = 5
   ): Promise<Omit<Question, "id" | "bankId" | "createdAt">[]> {
-    const completion = await openai.chat.completions.create({
+    const completion = await this.openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         {
@@ -45,7 +48,7 @@ export class OpenAIService {
     sentiment: "positive" | "neutral" | "negative";
     keyPoints: string[];
   }> {
-    const completion = await openai.chat.completions.create({
+    const completion = await this.openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         {
