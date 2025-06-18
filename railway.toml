@@ -1,0 +1,19 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm run build"
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10
+
+# Rate limiting configuration
+RATE_LIMIT_GLOBAL = "50"
+RATE_LIMIT_DM = "5"
+RATE_LIMIT_GUILD = "10"
+
+# Research session configuration
+RESEARCH_SESSION_TIMEOUT = "30"
+RESPONSE_WINDOW = "5" 

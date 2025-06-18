@@ -1,0 +1,66 @@
+{
+  "info": {
+    "name": "Discord Game Developer Research Bot API",
+    "description": "API collection for interacting with the Discord Game Developer Research Bot",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        },
+        "description": "Check if the API is running"
+      }
+    },
+    {
+      "name": "Assistant API",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/api/assistant",
+          "host": ["{{base_url}}"],
+          "path": ["api", "assistant"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"serverId\": \"string\",\n  \"message\": \"string\",\n  \"tool\": \"create_question_bank | list_question_banks | edit_questions | configure_limits | start_research_session | aggregate_responses\",\n  \"parameters\": {}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Handle DM conversations with server owners and tool calls"
+      }
+    },
+    {
+      "name": "Analytics API",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/analytics/{{server_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "analytics", "{{server_id}}"]
+        },
+        "description": "Export response data and metrics for a server"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "server_id",
+      "value": "your_server_id",
+      "type": "string"
+    }
+  ]
+}
