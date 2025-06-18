@@ -18,6 +18,11 @@ app.get("/health", async () => {
 
 export async function startServer() {
   try {
+    // Validate Discord token
+    if (!process.env.DISCORD_TOKEN) {
+      throw new Error("DISCORD_TOKEN environment variable is not set");
+    }
+
     // Start the Discord bot
     await startBot();
 

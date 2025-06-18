@@ -1,4 +1,4 @@
-import { Client, Guild, User } from "discord.js";
+import { Client, Events, GatewayIntentBits, Guild, User } from "discord.js";
 import Bottleneck from "bottleneck";
 import type { UserId } from "../types";
 

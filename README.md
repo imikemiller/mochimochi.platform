@@ -305,3 +305,47 @@ tests/             # Test files
    - Invite the bot to your Discord server
    - DM the bot to start configuring your research questions
    - Use the assistant API to manage question banks and sessions
+
+## Discord Bot Permissions & Intents
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Select your application, then go to the "OAuth2" > "URL Generator".
+3. Under "Scopes", select `bot` (and `applications.commands` if you use slash commands).
+4. Under "Bot Permissions", paste the permissions integer above or select the permissions listed.
+5. Copy the generated invite link and use it to invite your bot to your server.
+6. In the "Bot" section, enable the privileged intents listed above.
+
+**Required Privileged Gateway Intents:**
+
+- SERVER MEMBERS INTENT (GuildMembers)
+- PRESENCE INTENT (GuildPresences)
+- MESSAGE CONTENT INTENT (MessageContent)
+
+You must enable these intents in the [Discord Developer Portal](https://discord.com/developers/applications) under your application's "Bot" settings.
+
+**Permissions Integer:**
+
+```
+40632541640768
+```
+
+**Permissions:**
+
+- Send Messages
+- Create Private Threads
+- Send Messages in Threads
+- Send TTS Messages
+- Manage Messages
+- Manage Threads
+- Embed Links
+- Attach Files
+- Read Message History
+- Use External Emojis
+- Use External Stickers
+- Add Reactions
+- Use Slash Commands
+- Use Embedded Activities
+- Connect (voice)
+- Speak (voice)
+- Use Soundboard
+- Use External Sounds
