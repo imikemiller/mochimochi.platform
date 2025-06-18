@@ -85,6 +85,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
         channelId: message.channel.id,
         history: history.reverse(),
         serverId: message.guild?.id ?? "",
+        userId: message.author.id,
       });
 
       await message.reply(response);
