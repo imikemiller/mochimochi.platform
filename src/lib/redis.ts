@@ -1,6 +1,7 @@
 import { Redis } from "ioredis";
 import Bottleneck from "bottleneck";
 import { Queue, Worker } from "bullmq";
+import { ToolResultPart } from "ai";
 
 // Redis connection
 const redis = new Redis(process.env.REDIS_URL!);
@@ -73,6 +74,33 @@ export const responseWorker = new Worker(
     },
   }
 );
+
+export const saveToolResults = async ({
+  toolResults,
+  channelId,
+}: {
+  toolResults: ToolResultPart[];
+  channelId: string;
+}) => {
+  const key = `tool-result:${channelId}`;
+  await redis.set(key, JSON.stringify(toolResults));
+};
+
+export const getToolResults = async ({
+  channelId,
+}: {
+  channelId: string;
+}): Promise<ToolResultPart[]> => {
+  const key = `tool-result:${channelId}:*`;
+  const results = await redis.keys(key);
+  return results.map((result) => {
+    const data = JSON.parse(result);
+    return {
+      type: "tool-result",
+      ...data,
+    };
+  });
+};
 
 // Error handling
 questionWorker.on("error", (err) => {

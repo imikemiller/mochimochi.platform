@@ -1,5 +1,11 @@
 import { openai } from "@ai-sdk/openai";
-import { streamText, tool } from "ai";
+import {
+  generateText,
+  streamText,
+  tool,
+  ToolCallPart,
+  ToolResultPart,
+} from "ai";
 import { DiscordService } from "./discord";
 import z from "zod";
 import {
@@ -9,6 +15,7 @@ import {
   getQuestions,
   updateQuestion,
 } from "./supabase";
+import { getToolResults, saveToolResults } from "./redis";
 
 export type MessageHistory = {
   role: "user" | "assistant" | "system";
@@ -55,6 +62,18 @@ export class AssistantService {
     this.discordService = discordService;
   }
 
+  private async getToolHistory(channelId: string): Promise<ToolResultPart[]> {
+    const history = await getToolResults({ channelId });
+    return history;
+  }
+
+  private async updateHistory(
+    channelId: string,
+    toolResults: ToolResultPart[]
+  ) {
+    await saveToolResults({ channelId, toolResults });
+  }
+
   async handleMessage({
     channelId,
     history,
@@ -66,90 +85,112 @@ export class AssistantService {
     serverId: string;
     userId: string;
   }) {
-    await this.discordService.startTyping(channelId);
-
-    console.log("history", history);
-
-    const result = streamText({
-      model: openai("gpt-4.1"),
-      messages: history,
-      system: systemPrompt,
-      maxSteps: 5, // Enable multi-step tool calling
-      tools: {
-        create_survey_question: tool({
-          description: "Create a new survey question",
-          parameters: z.object({
-            question: z.string(),
-            question_bank_id: z.string(),
-          }),
-          execute: async (input) => {
-            const question = await createQuestion({
-              content: input.question,
-              bankId: input.question_bank_id,
-            });
-            return question;
-          },
-        }),
-        view_question_banks: tool({
-          description: "View the user's question banks",
-          parameters: z.object({}),
-          execute: async (input) => {
-            const questionBanks = await getQuestionBanks(serverId);
-            return questionBanks;
-          },
-        }),
-        create_question_bank: tool({
-          description: "Create a new question bank",
-          parameters: z.object({
-            name: z.string(),
-          }),
-          execute: async (input) => {
-            const questionBank = await createQuestionBank({
-              name: input.name,
-              serverId,
-              status: "active",
-              ownerId: userId,
-              updatedAt: new Date(),
-            });
-            return questionBank;
-          },
-        }),
-        view_questions: tool({
-          description: "View the questions in a question bank",
-          parameters: z.object({
-            question_bank_id: z.string(),
-          }),
-          execute: async (input) => {
-            const questions = await getQuestions(input.question_bank_id);
-            return questions;
-          },
-        }),
-        edit_question: tool({
-          description: "Edit an existing question in a question bank",
-          parameters: z.object({
-            question_bank_id: z.string(),
-            question_id: z.string(),
-            question: z.string(),
-          }),
-          execute: async (input) => {
-            const question = await updateQuestion({
-              id: input.question_id,
-              content: input.question,
-              bankId: input.question_bank_id,
-            });
-            return question;
-          },
-        }),
-      },
-    });
-
-    let response = "";
     try {
-      for await (const chunk of result.textStream) {
-        response += chunk;
-        await this.discordService.startTyping(channelId);
+      await this.discordService.startTyping(channelId);
+
+      // Get history from Redis
+      const toolHistory = await this.getToolHistory(channelId);
+
+      console.log("history", toolHistory);
+
+      const result = await generateText({
+        model: openai("gpt-4.1"),
+        messages: [
+          ...history,
+          ...toolHistory.map((result) => ({
+            role: "tool" as const,
+            content: [result],
+          })),
+        ],
+        system: systemPrompt,
+        maxSteps: 5,
+        tools: {
+          create_survey_question: tool({
+            description: "Create a new survey question",
+            parameters: z.object({
+              question: z.string(),
+              question_bank_id: z.string(),
+            }),
+            execute: async (input) => {
+              const question = await createQuestion({
+                content: input.question,
+                bank_id: input.question_bank_id,
+                created_at: new Date(),
+              });
+              return question;
+            },
+          }),
+          view_question_banks: tool({
+            description: "View the user's question banks",
+            parameters: z.object({}),
+            execute: async (input) => {
+              const questionBanks = await getQuestionBanks(serverId);
+              return questionBanks;
+            },
+          }),
+          create_question_bank: tool({
+            description: "Create a new question bank",
+            parameters: z.object({
+              name: z.string(),
+            }),
+            execute: async (input) => {
+              const questionBank = await createQuestionBank({
+                name: input.name,
+                server_id: serverId,
+                status: "active",
+                owner_id: userId,
+                created_at: new Date(),
+                updated_at: new Date(),
+              });
+              return questionBank;
+            },
+          }),
+          view_questions: tool({
+            description: "View the questions in a question bank",
+            parameters: z.object({
+              question_bank_id: z.string(),
+            }),
+            execute: async (input) => {
+              const questions = await getQuestions(input.question_bank_id);
+              return questions;
+            },
+          }),
+          edit_question: tool({
+            description: "Edit an existing question in a question bank",
+            parameters: z.object({
+              question_bank_id: z.string(),
+              question_id: z.string(),
+              question: z.string(),
+            }),
+            execute: async (input) => {
+              const question = await updateQuestion({
+                id: input.question_id,
+                content: input.question,
+                bank_id: input.question_bank_id,
+                created_at: new Date(),
+              });
+              return question;
+            },
+          }),
+        },
+      });
+
+      // Add tool calls and their results to history
+      if (result.toolCalls?.length) {
+        const toolResults: ToolResultPart[] = result.toolResults.map(
+          (toolCall) => ({
+            type: "tool-result",
+            toolCallId: toolCall.toolCallId,
+            toolName: toolCall.toolName,
+            result: toolCall.result,
+            isError: false,
+          })
+        );
+        // Update Redis with new history
+        await this.updateHistory(channelId, toolResults);
       }
-      return response;
+
+      return result.text;
     } catch (error) {
       console.error("Error in handleMessage:", error);
       throw error;

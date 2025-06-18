@@ -88,7 +88,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
         userId: message.author.id,
       });
 
-      await message.reply(response);
+      await discordService.sendDM(message.author.id, response);
     } catch (error) {
       console.error("Error handling message:", error);
       await message.reply(

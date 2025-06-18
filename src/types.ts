@@ -5,37 +5,37 @@ export type UserId = string;
 // Question Bank types
 export interface QuestionBank {
   id: string;
-  serverId: ServerId;
+  server_id: ServerId;
   name: string;
   status: "active" | "archived";
-  ownerId: UserId;
-  createdAt: Date;
-  updatedAt: Date;
+  owner_id: UserId;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface Question {
   id: string;
-  bankId: string;
+  bank_id: string;
   content: string;
   category?: string;
-  createdAt: Date;
+  created_at: Date;
 }
 
 // Research Session types
 export interface ResearchSession {
   id: string;
-  serverId: ServerId;
-  bankId: string;
+  server_id: ServerId;
+  bank_id: string;
   status: "active" | "completed" | "cancelled";
-  startedAt: Date;
+  started_at: Date;
   endedAt?: Date;
 }
 
 export interface Response {
   id: string;
-  sessionId: string;
-  userId: UserId;
-  questionId: string;
+  session_id: string;
+  user_id: UserId;
+  question_id: string;
   response: string;
-  createdAt: Date;
+  created_at: Date;
 }
