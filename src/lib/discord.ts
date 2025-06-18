@@ -1,4 +1,11 @@
-import { Client, Events, GatewayIntentBits, Guild, User } from "discord.js";
+import {
+  Client,
+  Events,
+  GatewayIntentBits,
+  Guild,
+  User,
+  TextChannel,
+} from "discord.js";
 import Bottleneck from "bottleneck";
 import type { UserId } from "../types";
 
@@ -54,5 +61,23 @@ export class DiscordService {
     } catch {
       return false;
     }
+  }
+
+  // Start typing indicator
+  async startTyping(channelId: string): Promise<void> {
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (channel instanceof TextChannel) {
+        await channel.sendTyping();
+      }
+    } catch (error) {
+      console.error("Error starting typing indicator:", error);
+    }
+  }
+
+  // Stop typing indicator (no-op as Discord handles this automatically)
+  async stopTyping(channelId: string): Promise<void> {
+    // Discord automatically stops the typing indicator after a few seconds
+    // or when a message is sent
   }
 }

@@ -7,7 +7,6 @@ export interface QuestionBank {
   id: string;
   serverId: ServerId;
   name: string;
-  description?: string;
   status: "active" | "archived";
   ownerId: UserId;
   createdAt: Date;

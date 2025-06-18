@@ -4,9 +4,11 @@ import {
   Events,
   GatewayIntentBits,
   Partials,
+  Message,
+  TextChannel,
 } from "discord.js";
 import { DiscordService } from "../lib/discord";
-import { OpenAIService } from "../lib/openai";
+import { AssistantService, MessageHistory } from "../lib/assistant";
 
 const client = new Client({
   intents: [
@@ -30,7 +32,7 @@ const client = new Client({
 });
 
 export const discordService = new DiscordService(client);
-export const openAIService = new OpenAIService();
+export const assistantService = new AssistantService(discordService);
 
 client.on(Events.Debug, (info) => {
   console.log("Debug:", info);
@@ -54,7 +56,10 @@ client.once(Events.ClientReady, (readyClient) => {
   console.log("Enabled partials:", client.options.partials);
 });
 
-client.on(Events.MessageCreate, async (message) => {
+client.on(Events.MessageCreate, async (message: Message) => {
+  // Ignore messages from bots
+  if (message.author.bot) return;
+
   console.log(
     `Message received: "${message.content}" from ${message.author.tag} in ${
       message.channel.type === ChannelType.DM
@@ -63,19 +68,31 @@ client.on(Events.MessageCreate, async (message) => {
     }`
   );
 
-  // Ignore bot messages
-  if (message.author.bot) {
-    console.log("Ignoring bot message");
-    return;
-  }
-
   // Handle DMs
   if (message.channel.type === ChannelType.DM) {
     console.log("DM received:", message.content);
     try {
-      await message.reply("I received your DM!");
+      // Fetch recent message history
+      const messages = await message.channel.messages.fetch({ limit: 20 });
+
+      // Convert to MessageHistory format
+      const history: MessageHistory[] = messages.map((msg) => ({
+        role: msg.author.id === client.user?.id ? "assistant" : "user",
+        content: msg.content,
+      }));
+
+      const response = await assistantService.handleMessage({
+        channelId: message.channel.id,
+        history: history.reverse(),
+        serverId: message.guild?.id ?? "",
+      });
+
+      await message.reply(response);
     } catch (error) {
-      console.error("Failed to reply to DM:", error);
+      console.error("Error handling message:", error);
+      await message.reply(
+        "Sorry, I encountered an error while processing your message."
+      );
     }
   }
 });

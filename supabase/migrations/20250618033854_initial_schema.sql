@@ -3,7 +3,6 @@
        id uuid default gen_random_uuid() primary key,
        server_id text not null,
        name text not null,
-       description text,
        status text not null default 'active' check (status in ('active', 'archived')),
        owner_id text not null,
        created_at timestamp with time zone default timezone('utc'::text, now()) not null,
@@ -15,7 +14,6 @@
        id uuid default gen_random_uuid() primary key,
        bank_id uuid references question_banks(id) on delete cascade,
        content text not null,
-       category text,
        created_at timestamp with time zone default timezone('utc'::text, now()) not null
      );
 

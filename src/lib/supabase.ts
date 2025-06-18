@@ -43,6 +43,44 @@ export async function getQuestions(bankId: string) {
   return data as Question[];
 }
 
+export async function createQuestionBank(
+  bank: Omit<QuestionBank, "id" | "createdAt">
+) {
+  const { data, error } = await getSupabase()
+    .from("question_banks")
+    .insert(bank)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as QuestionBank;
+}
+
+export async function createQuestion(
+  question: Omit<Question, "id" | "createdAt">
+) {
+  const { data, error } = await getSupabase()
+    .from("questions")
+    .insert(question)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as Question;
+}
+
+export async function updateQuestion(question: Omit<Question, "createdAt">) {
+  const { data, error } = await getSupabase()
+    .from("questions")
+    .update(question)
+    .eq("id", question.id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as Question;
+}
+
 // Research Session operations
 export async function createResearchSession(
   session: Omit<ResearchSession, "id" | "startedAt">
