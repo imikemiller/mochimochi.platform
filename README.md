@@ -121,74 +121,93 @@ Building a Discord bot that randomly selects online users to send research quest
 
 ### Local Development Setup
 
-1. **Clone the repository**
+**Clone the repository**
 
-   ```bash
-   git clone [repository-url]
-   cd [project-directory]
-   ```
+```bash
+git clone [repository-url]
+cd [project-directory]
+```
 
-2. **Install dependencies**
+**Install dependencies**
 
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
-3. **Environment Setup**
-   Create a `.env` file with the following variables:
+**Environment Setup**
+Create a `.env` file with the following variables:
 
-   ```
-   DISCORD_TOKEN=your_discord_bot_token
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_KEY=your_supabase_anon_key
-   OPENAI_API_KEY=your_openai_api_key
-   ```
+```
+DISCORD_TOKEN=your_discord_bot_token
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_anon_key
+OPENAI_API_KEY=your_openai_api_key
+```
 
-4. **Database Setup**
+**Database Setup**
 
-   - Install Supabase CLI:
+- Install Supabase CLI:
 
-     ```bash
-     # Using Homebrew (macOS)
-     brew install supabase/tap/supabase
+  ```bash
+  # Using Homebrew (macOS)
+  brew install supabase/tap/supabase
 
-     # Using npm
-     npm install -g supabase
-     ```
+  # Using npm
+  npm install -g supabase
+  ```
 
-   - Initialize Supabase in your project:
-     ```bash
-     supabase init
-     ```
-   - Link your project:
+- Initialize Supabase in your project:
+  ```bash
+  supabase init
+  ```
+- Link your project:
 
-     ```bash
-     supabase link --project-ref mochimochi.platform
-     ```
+  ```bash
+  supabase link --project-ref mochimochi.platform
+  ```
 
-   - Apply the migration:
-     ```bash
-     supabase db push
-     ```
-   - (Optional) Start local development database:
-     ```bash
-     supabase start
-     ```
+- Apply the migration:
+  ```bash
+  supabase db push
+  ```
+- (Optional) Start local development database:
+  ```bash
+  supabase start
+  ```
 
-5. **Discord Bot Setup**
+**Discord Bot Setup**
 
-   - Create a new Discord application at https://discord.com/developers/applications
-   - Add a bot to your application
-   - Enable required intents:
-     - Message Content Intent
-     - Server Members Intent
-   - Generate and save your bot token
-   - Invite the bot to your server with appropriate permissions
+- Create a new Discord application at https://discord.com/developers/applications
+- Add a bot to your application
+- Enable required intents:
+  - Message Content Intent
+  - Server Members Intent
+- Generate and save your bot token
+- Invite the bot to your server with appropriate permissions
+- Install using https://discord.com/oauth2/authorize?client_id=1384748071828848714&permissions=1032939968512&integration_type=0&scope=bot+applications.commands&redirect_uri=https://szxyxnuexhqslybalewz.supabase.co/auth/v1/callback
 
-6. **Development Server**
-   ```bash
-   npm run dev
-   ```
+## Environment Variables & Local Development with Railway
+
+### Setting Environment Variables in Railway
+
+- Go to your Railway project dashboard.
+- Click on your service (e.g., "api").
+- Go to the **Variables** tab.
+- Add all required environment variables (e.g., `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY`, `DISCORD_TOKEN`, etc.).
+- Click **Save**.
+- **Redeploy** your service after making changes to variables.
+
+> **Note:** Railway does **not** use your local `.env` file in production. You must set variables in the Railway dashboard.
+
+### Local Development with Railway Variables
+
+To run your app locally with the same environment variables as your Railway service, use:
+
+```
+railway run npm run dev
+```
+
+This will inject the variables from Railway into your local process, ensuring your local environment matches production as closely as possible.
 
 ### Deployment
 

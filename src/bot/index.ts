@@ -1,7 +1,6 @@
 import { ChannelType, Client, GatewayIntentBits } from "discord.js";
 import { DiscordService } from "../lib/discord";
 import { OpenAIService } from "../lib/openai";
-import { getSupabase } from "../lib/supabase";
 
 const client = new Client({
   intents: [
@@ -26,13 +25,16 @@ client.on("messageCreate", async (message) => {
 
   // Handle DMs
   if (message.channel.type === ChannelType.DM) {
-    // TODO: Implement DM handling
-    const user = await getSupabase()
-      .from("users")
-      .select("*")
-      .eq("discord_id", message.author.id);
-    console.log("user", user);
+    console.log("message", message);
   }
+});
+
+// Listen for when bot joins a server
+client.on("guildCreate", async (guild) => {
+  // guild.ownerId gives you the server owner
+  // But not necessarily who installed the bot
+
+  console.log(`Bot added to ${guild.name} owned by ${guild.ownerId}`);
 });
 
 export async function startBot() {
