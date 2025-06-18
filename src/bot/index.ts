@@ -4,13 +4,14 @@ import { OpenAIService } from "../lib/openai";
 
 const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds, // For guild events
-    GatewayIntentBits.GuildMessages, // For messages in guilds
-    GatewayIntentBits.DirectMessages, // For DMs
-    GatewayIntentBits.MessageContent, // To read message content
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.DirectMessages,
     GatewayIntentBits.DirectMessageTyping,
-    GatewayIntentBits.GuildMembers, // For member info
-    GatewayIntentBits.GuildPresences, // For online status
+    GatewayIntentBits.DirectMessageReactions,
   ],
 });
 
@@ -32,6 +33,10 @@ client.once(Events.ClientReady, (readyClient) => {
     "Available in guilds:",
     readyClient.guilds.cache.map((g) => g.name).join(", ")
   );
+  console.log(
+    "Enabled intents:",
+    Object.keys(client.options.intents).join(", ")
+  );
 });
 
 client.on(Events.MessageCreate, async (message) => {
@@ -52,6 +57,11 @@ client.on(Events.MessageCreate, async (message) => {
   // Handle DMs
   if (message.channel.type === ChannelType.DM) {
     console.log("DM received:", message.content);
+    try {
+      await message.reply("I received your DM!");
+    } catch (error) {
+      console.error("Failed to reply to DM:", error);
+    }
   }
 });
 
