@@ -64,6 +64,7 @@ export class OpenAIService {
 
     // Parse the analysis
     const analysis = completion.choices[0].message.content;
+    console.log("analysis", analysis);
     // TODO: Implement proper parsing of the analysis
     return {
       sentiment: "neutral",

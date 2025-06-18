@@ -1,6 +1,6 @@
 import { Client, Guild, User } from "discord.js";
 import Bottleneck from "bottleneck";
-import type { ServerId, UserId } from "../types";
+import type { UserId } from "../types";
 
 // Rate limiters
 const globalLimiter = new Bottleneck({
@@ -26,6 +26,13 @@ export class DiscordService {
     const randomMembers = onlineMembers
       .random(count)
       .map((member) => member.user);
+
+    console.log("globalLimiter", globalLimiter);
+
+    console.log("randomMembers", randomMembers);
+    console.log("onlineMembers", onlineMembers);
+    console.log("members", members);
+    console.log("guild", guild);
 
     return randomMembers;
   }

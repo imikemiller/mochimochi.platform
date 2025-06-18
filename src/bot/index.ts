@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits } from "discord.js";
+import { ChannelType, Client, GatewayIntentBits } from "discord.js";
 import { DiscordService } from "../lib/discord";
 import { OpenAIService } from "../lib/openai";
 import { supabase } from "../lib/supabase";
@@ -25,8 +25,13 @@ client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
   // Handle DMs
-  if (message.channel.type === "DM") {
+  if (message.channel.type === ChannelType.DM) {
     // TODO: Implement DM handling
+    const user = await supabase
+      .from("users")
+      .select("*")
+      .eq("discord_id", message.author.id);
+    console.log("user", user);
   }
 });
 
