@@ -15,7 +15,6 @@ import {
   getQuestions,
   updateQuestion,
 } from "./supabase";
-import { getToolResults, saveToolResults } from "./redis";
 
 export type MessageHistory = {
   role: "user" | "assistant" | "system";
@@ -30,11 +29,11 @@ Game developers want to answer questions about their game like how their users f
 
 The main tasks that mochimochi users want assistance with are:
 
-- Create their survey questions. You can use the \`create_survey_question\` tool to save a survey question. Survey questions are grouped into question banks.
-- View their question banks. You can use the \`view_question_banks\` tool to view the question banks.
+- Create their survey questions. You can use the \`create_question\` tool to save a survey question. Questions are grouped into question banks. You must pass a valid question bank id returned from the \`view_question_banks\` tool.
+- View their question banks. You can use the \`view_question_banks\` tool to view a list of the users existing question banks.
 - Create new question banks. You can use the \`create_question_bank\` tool to create a new question bank. Question banks are logically similar to a survey and are made up of multiple questions.
-- View the questions in the question banks. You can use the \`view_questions\` tool to view the questions in the question banks by passing in the question bank id.
-- Edit an existing question in a bank. You can use the \`edit_question\` tool to edit an existing question in a bank by passing in the question bank id and the question id.
+- View the questions in the question banks. You can use the \`view_questions\` tool to view the questions in the question banks by passing in the question bank id. You must pass a valid question bank id returned from the \`view_question_banks\` tool.
+- Edit an existing question in a bank. You can use the \`edit_question\` tool to edit an existing question in a bank by passing in the question bank id and the question id. You must pass a valid question bank id and question id returned from the \`view_questions\` tool.
 
 Your communication style should be professional but informal. You can use emojis make occasional references to Japanese culture and gaming industry but not too much. Be human too.
 
@@ -62,18 +61,6 @@ export class AssistantService {
     this.discordService = discordService;
   }
 
-  private async getToolHistory(channelId: string): Promise<ToolResultPart[]> {
-    const history = await getToolResults({ channelId });
-    return history;
-  }
-
-  private async updateHistory(
-    channelId: string,
-    toolResults: ToolResultPart[]
-  ) {
-    await saveToolResults({ channelId, toolResults });
-  }
-
   async handleMessage({
     channelId,
     history,
@@ -88,20 +75,9 @@ export class AssistantService {
     try {
       await this.discordService.startTyping(channelId);
 
-      // Get history from Redis
-      const toolHistory = await this.getToolHistory(channelId);
-
-      console.log("history", toolHistory);
-
       const result = await generateText({
         model: openai("gpt-4.1"),
-        messages: [
-          ...history,
-          ...toolHistory.map((result) => ({
-            role: "tool" as const,
-            content: [result],
-          })),
-        ],
+        messages: [...history],
         system: systemPrompt,
         maxSteps: 5,
         tools: {
@@ -174,21 +150,6 @@ export class AssistantService {
           }),
         },
       });
-
-      // Add tool calls and their results to history
-      if (result.toolCalls?.length) {
-        const toolResults: ToolResultPart[] = result.toolResults.map(
-          (toolCall) => ({
-            type: "tool-result",
-            toolCallId: toolCall.toolCallId,
-            toolName: toolCall.toolName,
-            result: toolCall.result,
-            isError: false,
-          })
-        );
-        // Update Redis with new history
-        await this.updateHistory(channelId, toolResults);
-      }
 
       return result.text;
     } catch (error) {
