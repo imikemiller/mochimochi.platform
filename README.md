@@ -241,7 +241,7 @@ src/
 │   ├── commands.ts   # Bot command handlers
 │   ├── events.ts     # Discord event handlers
 │   └── index.ts      # Bot initialization
-├── services/         # External services
+├── lib/              # Libraries for external services
 │   ├── discord.ts    # Discord service (user selection, message handling)
 │   ├── openai.ts     # OpenAI integration for question generation
 │   └── supabase.ts   # Supabase client & queries
@@ -253,12 +253,6 @@ src/
 
 tests/             # Test files
 └── integration/   # Integration tests
-```
-
-Now let me create the skeleton files:
-
-```
-run_terminal_cmd
 ```
 
 ### Running the Application

@@ -9,6 +9,11 @@ healthcheckTimeout = 100
 restartPolicyType = "on-failure"
 restartPolicyMaxRetries = 10
 
+[[services]]
+name = "api"
+envs = ["production"]
+port = 3000
+
 # Rate limiting configuration
 RATE_LIMIT_GLOBAL = "50"
 RATE_LIMIT_DM = "5"
@@ -16,4 +21,8 @@ RATE_LIMIT_GUILD = "10"
 
 # Research session configuration
 RESEARCH_SESSION_TIMEOUT = "30"
-RESPONSE_WINDOW = "5" 
+RESPONSE_WINDOW = "5"
+
+[deploy.env]
+NODE_ENV = "production"
+PORT = "3000" 

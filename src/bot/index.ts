@@ -1,7 +1,7 @@
 import { Client, GatewayIntentBits } from "discord.js";
-import { DiscordService } from "../services/discord";
-import { OpenAIService } from "../services/openai";
-import { supabase } from "../services/supabase";
+import { DiscordService } from "../lib/discord";
+import { OpenAIService } from "../lib/openai";
+import { supabase } from "../lib/supabase";
 
 const client = new Client({
   intents: [
