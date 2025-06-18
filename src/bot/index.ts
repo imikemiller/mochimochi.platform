@@ -17,14 +17,37 @@ const client = new Client({
 export const discordService = new DiscordService(client);
 export const openAIService = new OpenAIService();
 
+client.on(Events.Debug, (info) => {
+  console.log("Debug:", info);
+});
+
+client.on(Events.Error, (error) => {
+  console.error("Discord client error:", error);
+});
+
 client.once(Events.ClientReady, (readyClient) => {
-  console.log(`Logged in as ${readyClient.user.tag}`);
+  console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+  console.log(`Bot is in ${readyClient.guilds.cache.size} guilds`);
+  console.log(
+    "Available in guilds:",
+    readyClient.guilds.cache.map((g) => g.name).join(", ")
+  );
 });
 
 client.on(Events.MessageCreate, async (message) => {
-  console.log("messageCreate", message.content, "from", message.author.tag);
+  console.log(
+    `Message received: "${message.content}" from ${message.author.tag} in ${
+      message.channel.type === ChannelType.DM
+        ? "DM"
+        : `#${(message.channel as any).name}`
+    }`
+  );
+
   // Ignore bot messages
-  if (message.author.bot) return;
+  if (message.author.bot) {
+    console.log("Ignoring bot message");
+    return;
+  }
 
   // Handle DMs
   if (message.channel.type === ChannelType.DM) {
@@ -41,6 +64,10 @@ client.on(Events.GuildCreate, async (guild) => {
 
 export async function startBot() {
   try {
+    console.log(
+      "Starting bot with intents:",
+      Object.keys(client.options.intents)
+    );
     await client.login(process.env.DISCORD_TOKEN);
   } catch (error) {
     console.error("Failed to start bot:", error);
