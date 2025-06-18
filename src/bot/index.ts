@@ -16,15 +16,16 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildPresences,
     GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.DirectMessageTyping,
     GatewayIntentBits.DirectMessageReactions,
     GatewayIntentBits.GuildMessageTyping,
     GatewayIntentBits.GuildMessageReactions,
   ],
   partials: [
     Partials.Channel, // Required for DM channels
-    Partials.Message,
-    Partials.Reaction,
+    Partials.Message, // For message content
+    Partials.Reaction, // For reaction events
+    Partials.User, // For user data
+    Partials.GuildMember, // For guild member data
   ],
 });
 
