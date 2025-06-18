@@ -99,6 +99,16 @@ export class AssistantService {
               question_bank_id: z.string(),
             }),
             execute: async (input) => {
+              const existingQuestions = await getQuestions(
+                input.question_bank_id
+              );
+              if (existingQuestions.length >= 5) {
+                return {
+                  error:
+                    "Your plan can only have up to 5 questions per question bank",
+                };
+              }
+
               const question = await createQuestion({
                 content: input.question,
                 bank_id: input.question_bank_id,
@@ -116,11 +126,30 @@ export class AssistantService {
             },
           }),
           create_question_bank: tool({
-            description: "Create a new question bank",
+            description:
+              "Create a new question bank. If a question bank with this name already exists, you can use the force parameter to create it anyway.",
             parameters: z.object({
               name: z.string(),
+              force: z.boolean().default(false),
             }),
             execute: async (input) => {
+              const existingQuestionBanks = await getQuestionBanks(serverId);
+              if (
+                existingQuestionBanks.some(
+                  (bank) => bank.name === input.name && !input.force
+                )
+              ) {
+                return {
+                  warning: "A question bank with this name already exists",
+                };
+              }
+
+              if (existingQuestionBanks.length >= 3) {
+                return {
+                  error: "Your plan can only have up to 3 question banks",
+                };
+              }
+
               const questionBank = await createQuestionBank({
                 name: input.name,
                 server_id: serverId,
