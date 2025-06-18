@@ -81,6 +81,26 @@ export async function updateQuestion(question: Omit<Question, "createdAt">) {
   return data as Question;
 }
 
+export async function deleteQuestion(questionId: string) {
+  const { data, error } = await getSupabase()
+    .from("questions")
+    .delete()
+    .eq("id", questionId);
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteQuestionBank(questionBankId: string) {
+  const { data, error } = await getSupabase()
+    .from("question_banks")
+    .delete()
+    .eq("id", questionBankId);
+
+  if (error) throw error;
+  return data;
+}
+
 // Research Session operations
 export async function createResearchSession(
   session: Omit<ResearchSession, "id" | "startedAt">
