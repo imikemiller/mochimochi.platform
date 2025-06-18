@@ -1,4 +1,10 @@
-import { ChannelType, Client, Events, GatewayIntentBits } from "discord.js";
+import {
+  ChannelType,
+  Client,
+  Events,
+  GatewayIntentBits,
+  Partials,
+} from "discord.js";
 import { DiscordService } from "../lib/discord";
 import { OpenAIService } from "../lib/openai";
 
@@ -12,6 +18,13 @@ const client = new Client({
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.DirectMessageTyping,
     GatewayIntentBits.DirectMessageReactions,
+    GatewayIntentBits.GuildMessageTyping,
+    GatewayIntentBits.GuildMessageReactions,
+  ],
+  partials: [
+    Partials.Channel, // Required for DM channels
+    Partials.Message,
+    Partials.Reaction,
   ],
 });
 
@@ -37,6 +50,7 @@ client.once(Events.ClientReady, (readyClient) => {
     "Enabled intents:",
     Object.keys(client.options.intents).join(", ")
   );
+  console.log("Enabled partials:", client.options.partials);
 });
 
 client.on(Events.MessageCreate, async (message) => {
@@ -78,6 +92,7 @@ export async function startBot() {
       "Starting bot with intents:",
       Object.keys(client.options.intents)
     );
+    console.log("Starting bot with partials:", client.options.partials);
     await client.login(process.env.DISCORD_TOKEN);
   } catch (error) {
     console.error("Failed to start bot:", error);
