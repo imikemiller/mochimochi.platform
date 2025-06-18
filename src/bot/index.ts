@@ -20,6 +20,7 @@ client.once("ready", () => {
 });
 
 client.on("messageCreate", async (message) => {
+  console.log("messageCreate", message);
   // Ignore bot messages
   if (message.author.bot) return;
 

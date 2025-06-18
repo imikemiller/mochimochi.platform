@@ -184,7 +184,7 @@ OPENAI_API_KEY=your_openai_api_key
   - Server Members Intent
 - Generate and save your bot token
 - Invite the bot to your server with appropriate permissions
-- Install using https://discord.com/oauth2/authorize?client_id=1384748071828848714&permissions=1032939968512&integration_type=0&scope=bot+applications.commands&redirect_uri=https://szxyxnuexhqslybalewz.supabase.co/auth/v1/callback
+- Install using https://discord.com/oauth2/authorize?client_id=1384748071828848714&permissions=481036621888&integration_type=0&scope=bot+applications.commands
 
 ## Environment Variables & Local Development with Railway
 
