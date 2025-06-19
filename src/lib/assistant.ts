@@ -14,6 +14,7 @@ import {
   setActiveGuild,
   updateQuestion,
 } from "./supabase";
+import { Channel, ChannelType, Message, TextChannel } from "discord.js";
 
 export type MessageHistory = {
   role: "user" | "assistant" | "system";
@@ -64,6 +65,7 @@ All the tools that you use must be passed the active guild id. You can get the a
 # Rules
 - Your communication style should be professional but informal. You can use emojis make occasional references to Japanese culture and gaming industry but not too much. Be human too.
 - You should also be able to handle errors and provide helpful feedback to the user.
+- You will be given a message with the username in it and you can use this to address the user directly using the \`@username\` syntax.
 - You should also be able to handle user requests for help and provide helpful feedback to the user.
 - Don't refer directly to question banks but explain them conceptually as groups of questions or similar to surveys.
 - When you introduce yourself explain what mochimochi is and what it does - although its aimed at game developers, it can be used by anyone so don't assume it's only for game developers.
@@ -71,7 +73,41 @@ All the tools that you use must be passed the active guild id. You can get the a
 - Only propose edits of questions if the user has existing question banks stored in the database.
 - If the user does not specify which question bank to use, ask them for a name to create a new question bank.
 - Make sure to walk the user through the process rather than helping them create the questions.
+- Feel free to call as many tools as you need to get all the related information before replying to the user. You don't need to ask for confirmation before calling a tool.
+- Never include a prefix with a name in square brackets in front of your message. This is shown in the message history so you know who said what but should not be shown to the user.
+`;
 
+const threadSystemPrompt = ({
+  moveToDm,
+  isServerOwner,
+  ownerName,
+}: {
+  moveToDm: boolean;
+  isServerOwner: boolean;
+  ownerName: string;
+}) => `
+You are mochimochi, an AI agent who is great at assisting users with setting up their mochimochi bot in discord.
+
+The mochimochi bot automates user research by sending short survey questions to discord users to help game developers get better feedback on their games.
+
+Game developers want to answer questions about their game like how their users felt about new features or game mechanics or about what they would like to see in the next version of the game.
+
+You have been @mentioned in a channel and you should reply to the user that you are going to ${
+  moveToDm ? "open a DM" : "open a thread"
+} to help them out with whatever they referred to in the message with the @mochimochi mention.
+
+As input you will get the most recent messages from the channel and the name and topic of the channel for extra context.
+
+If the user is ${
+  isServerOwner
+    ? `the server owner, they are called ${ownerName} and you should should focus your messages on helping them set up the bot and the research questions.`
+    : `not the server owner then this is great as they can help the server owner with answering some questions. You should thank them for reaching out and that you will DM them to ask a few questions on behalf of the server owner. The server owner is called ${ownerName} and you can reference them using the \`@${ownerName}\` syntax.`
+}, 
+
+# Rules
+- Never include a prefix with a name in square brackets in front of your message. This is shown in the message history so you know who said what but should not be shown to the user.
+- Dont explain to the user if they are not the server owner. Just thank them for reaching out and that you will DM them to ask a few questions from the server owner who is called ${ownerName}.
+- Say something like "I am going to DM you if thats oK to ask some questions on behalf of @${ownerName}.".
 `;
 
 export class AssistantService {
@@ -82,22 +118,26 @@ export class AssistantService {
   }
 
   async handleMessage({
-    channelId,
     history,
-    userId,
-    guildId,
+    message,
   }: {
-    channelId: string;
+    message: Message;
     history: MessageHistory[];
-    userId: string;
-    guildId?: string;
   }) {
+    const userId = message.author.id;
+    const guildId = message.guildId;
     try {
-      await this.discordService.startTyping(channelId);
+      await this.discordService.startTyping(message.channel.id);
 
       const result = await generateText({
         model: openai("gpt-4.1"),
-        messages: [...history],
+        messages: [
+          ...history,
+          {
+            role: "assistant",
+            content: `The users name is ${message.author.username}`,
+          },
+        ],
         system: systemPrompt,
         maxSteps: 10,
         tools: {
@@ -106,8 +146,17 @@ export class AssistantService {
             parameters: z.object({}),
             execute: async () => {
               if (guildId) {
-                const guild = await getGuild({ guildId });
-                return guild;
+                console.log("GUILD ID", guildId);
+                try {
+                  const guild = await getGuild({ guildId });
+                  return guild;
+                } catch (error) {
+                  console.error("Error getting guild:", error);
+                  return await setActiveGuild({
+                    guildId,
+                    userId,
+                  });
+                }
               }
               const activeGuild = await getActiveGuild({ userId });
 
@@ -295,6 +344,116 @@ export class AssistantService {
       return result.text;
     } catch (error) {
       console.error("Error in handleMessage:", error);
+      throw error;
+    }
+  }
+
+  async handleMention({
+    message,
+    history,
+    moveToDm = false,
+    isServerOwner = false,
+  }: {
+    message: Message;
+    history: MessageHistory[];
+    moveToDm: boolean;
+    isServerOwner: boolean;
+  }) {
+    try {
+      await this.discordService.startTyping(message.channel.id);
+
+      const ownerId = message.guild?.ownerId;
+      let ownerName = "";
+      if (ownerId) {
+        const ownerUser = await message.guild?.client.users.fetch(ownerId);
+        ownerName = ownerUser?.username;
+      }
+
+      const isDm = message.channel.isDMBased();
+      const hasTopic = (channel: Message["channel"]): channel is TextChannel =>
+        channel.type === ChannelType.GuildText &&
+        "topic" in channel &&
+        channel.topic !== null;
+
+      const channel = message.channel;
+
+      const result = await generateText({
+        model: openai("gpt-4.1"),
+        messages: [
+          ...history,
+          {
+            role: "assistant" as const,
+            content: `The users name is ${
+              message.author.username
+            } and they are ${
+              isServerOwner ? "the server owner" : "not the server owner"
+            }.`,
+          },
+          ...(!isDm
+            ? [
+                {
+                  role: "assistant" as const,
+                  content: `The channel name is ${message.channel.name}`,
+                },
+                ...(hasTopic(channel)
+                  ? [
+                      {
+                        role: "assistant" as const,
+                        content: `The channel topic is ${channel.topic}`,
+                      },
+                    ]
+                  : []),
+              ]
+            : []),
+        ],
+        system: threadSystemPrompt({
+          moveToDm,
+          isServerOwner,
+          ownerName,
+        }),
+        maxSteps: 10,
+        tools: {
+          fetch_dm_history: tool({
+            description: `Fetch the history of the DM with ${message.author.username}. Use this to get context for the first message you send in the DM.`,
+            parameters: z.object({}),
+            execute: async () => {
+              return await message.author.dmChannel?.messages.fetch();
+            },
+          }),
+          ...(!moveToDm
+            ? {
+                create_thread: tool({
+                  description: `Creates a new thread in the channel to discuss ${message.author.username}'s message.`,
+                  parameters: z.object({
+                    threadName: z.string(),
+                    firstMessage: z.string(),
+                  }),
+                  execute: async (input) => {
+                    const thread = await this.discordService.createThread(
+                      message,
+                      input.threadName
+                    );
+                    return thread.send(input.firstMessage);
+                  },
+                }),
+              }
+            : {
+                move_to_dm: tool({
+                  description: `Moves the conversation to a DM with ${message.author.username}. Send a first dm message to the user to start the conversation.`,
+                  parameters: z.object({
+                    firstDmMessage: z.string(),
+                  }),
+                  execute: async (input) => {
+                    return await message.author.send(input.firstDmMessage);
+                  },
+                }),
+              }),
+        },
+      });
+
+      return result.text;
+    } catch (error) {
+      console.error("Error in handleThread:", error);
       throw error;
     }
   }

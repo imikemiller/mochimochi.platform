@@ -1,14 +1,12 @@
+import Bottleneck from "bottleneck";
 import {
   Client,
-  Events,
-  GatewayIntentBits,
-  Guild,
-  User,
-  TextChannel,
-  DMChannel,
   Collection,
+  Guild,
+  Message,
+  ThreadChannel,
+  User,
 } from "discord.js";
-import Bottleneck from "bottleneck";
 import type { UserId } from "../types";
 
 // Rate limiters
@@ -20,6 +18,18 @@ const globalLimiter = new Bottleneck({
 const dmLimiter = new Bottleneck({
   maxConcurrent: 1,
   minTime: 60000 / 5, // 5 DMs per minute
+});
+
+// Rate limiter for message replies (5 messages per 2 seconds per channel)
+const replyLimiter = new Bottleneck({
+  maxConcurrent: 1,
+  minTime: 2000 / 5, // 5 replies per 2 seconds
+});
+
+// Rate limiter for thread creation (5 threads per 10 minutes per channel)
+const threadLimiter = new Bottleneck({
+  maxConcurrent: 1,
+  minTime: 600000 / 5, // 5 threads per 10 minutes
 });
 
 export class DiscordService {
@@ -54,11 +64,18 @@ export class DiscordService {
     });
   }
 
+  // Reply to a message with rate limiting
+  async replyMessage(message: Message, content: string): Promise<Message> {
+    return await replyLimiter.schedule(async () => {
+      return await message.reply(content);
+    });
+  }
+
   // Check if user has DMs enabled
   async canSendDM(userId: UserId): Promise<boolean> {
     try {
       const user = await this.client.users.fetch(userId);
-      const dmChannel = await user.createDM();
+      await user.createDM();
       return true;
     } catch {
       return false;
@@ -74,6 +91,19 @@ export class DiscordService {
     } catch (error) {
       console.error("Error sending typing indicator:", error);
     }
+  }
+
+  // Create a thread with rate limiting
+  async createThread(
+    message: Message,
+    threadName: string
+  ): Promise<ThreadChannel> {
+    return await threadLimiter.schedule(async () => {
+      return await message.startThread({
+        name: threadName,
+        autoArchiveDuration: 1440,
+      });
+    });
   }
 
   async getGuilds({

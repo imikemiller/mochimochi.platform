@@ -6,6 +6,7 @@ import {
   Partials,
   Message,
   TextChannel,
+  ThreadChannel,
 } from "discord.js";
 import { DiscordService } from "../lib/discord";
 import { AssistantService, MessageHistory } from "../lib/assistant";
@@ -67,25 +68,22 @@ client.on(Events.MessageCreate, async (message: Message) => {
         : `#${(message.channel as any).name}`
     }`
   );
+  // Fetch recent message history
+  const messages = await message.channel.messages.fetch({ limit: 20 });
 
-  // Handle DMs
+  // Convert to MessageHistory format
+  const history: MessageHistory[] = messages.map((msg) => ({
+    role: msg.author.id === client.user?.id ? "assistant" : "user",
+    content: `[${msg.author.username}]: ${msg.content}`,
+  }));
+
+  // Handle DMs in Assistant mode
   if (message.channel.type === ChannelType.DM) {
     console.log("DM received:", message.content);
     try {
-      // Fetch recent message history
-      const messages = await message.channel.messages.fetch({ limit: 20 });
-
-      // Convert to MessageHistory format
-      const history: MessageHistory[] = messages.map((msg) => ({
-        role: msg.author.id === client.user?.id ? "assistant" : "user",
-        content: msg.content,
-      }));
-
       const response = await assistantService.handleMessage({
-        channelId: message.channel.id,
+        message,
         history: history.reverse(),
-        guildId: message.guildId ?? undefined,
-        userId: message.author.id,
       });
 
       await discordService.sendDM(message.author.id, response);
@@ -94,6 +92,35 @@ client.on(Events.MessageCreate, async (message: Message) => {
       await message.reply(
         "Sorry, I encountered an error while processing your message."
       );
+    }
+  }
+
+  // Handle mentions in channels and start threads if needed
+  if (message.mentions.has(client.user?.id ?? "")) {
+    const isServerOwner = message.guild?.ownerId === message.author.id;
+    console.log("isServerOwner", isServerOwner);
+
+    const response = await assistantService.handleMention({
+      message,
+      history: history.reverse(),
+      moveToDm: true,
+      isServerOwner,
+    });
+
+    await discordService.replyMessage(message, response);
+  }
+
+  // Follow up in threads
+  // Check if bot is the thread creator (ownerId)
+
+  if (message.channel.isThread()) {
+    if (message.channel.ownerId === client.user?.id) {
+      const response = await assistantService.handleMessage({
+        message,
+        history: history.reverse(),
+      });
+
+      await discordService.replyMessage(message, response);
     }
   }
 });
