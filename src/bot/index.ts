@@ -84,7 +84,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
       const response = await assistantService.handleMessage({
         channelId: message.channel.id,
         history: history.reverse(),
-        serverId: message.guild?.id ?? "",
+        guildId: message.guildId ?? undefined,
         userId: message.author.id,
       });
 

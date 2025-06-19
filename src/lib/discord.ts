@@ -6,6 +6,7 @@ import {
   User,
   TextChannel,
   DMChannel,
+  Collection,
 } from "discord.js";
 import Bottleneck from "bottleneck";
 import type { UserId } from "../types";
@@ -73,5 +74,17 @@ export class DiscordService {
     } catch (error) {
       console.error("Error sending typing indicator:", error);
     }
+  }
+
+  async getGuilds({
+    userId,
+  }: {
+    userId: UserId;
+  }): Promise<Collection<string, Guild>> {
+    return this.client.guilds.cache.filter((guild) =>
+      guild.members.cache
+        .get(userId)
+        ?.permissions.has(["ManageGuild", "Administrator"])
+    );
   }
 }
