@@ -41,6 +41,7 @@ export interface ResearchSession {
   guild_id: GuildId;
   bank_id: string;
   owner_id: UserId;
+  responder_id: UserId;
   status: "active" | "completed" | "cancelled";
   started_at: Date;
   ended_at?: Date;
@@ -49,9 +50,17 @@ export interface ResearchSession {
 export interface Response {
   id: string;
   session_id: string;
-  guild_id: GuildId;
+  owner_id: UserId;
   user_id: UserId;
   question_id: string;
   response: string;
   created_at: Date;
+}
+
+export interface DiscordUser {
+  id: string;
+  discord_user_id: string;
+  name: string;
+  created_at: Date;
+  updated_at: Date;
 }

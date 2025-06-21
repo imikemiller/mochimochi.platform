@@ -10,6 +10,7 @@ import {
 } from "discord.js";
 import { DiscordService } from "../lib/discord";
 import { AssistantService, MessageHistory } from "../lib/assistant";
+import { getActiveResearchSession } from "@/lib/supabase";
 
 const client = new Client({
   intents: [
@@ -80,13 +81,32 @@ client.on(Events.MessageCreate, async (message: Message) => {
   // Handle DMs in Assistant mode
   if (message.channel.type === ChannelType.DM) {
     console.log("DM received:", message.content);
+    const activeSession = await getActiveResearchSession({
+      userId: message.author.id,
+    }).catch((error) => {
+      console.error("Error getting active session:", error);
+      return null;
+    });
+    console.log("activeSession", activeSession);
     try {
-      const response = await assistantService.handleMessage({
-        message,
-        history: history.reverse(),
-      });
-
-      await discordService.sendDM(message.author.id, response);
+      if (!activeSession || activeSession.owner_id === message.author.id) {
+        console.log("Handle owner DM");
+        const response = await assistantService.handleMessage({
+          message,
+          history: history.reverse(),
+        });
+        await discordService.sendDM(message.author.id, response);
+      } else if (
+        activeSession &&
+        activeSession.responder_id === message.author.id
+      ) {
+        console.log("Handle conversation DM");
+        const response = await assistantService.handleConversation({
+          message,
+          history: history.reverse(),
+        });
+        await discordService.replyMessage(message, response);
+      }
     } catch (error) {
       console.error("Error handling message:", error);
       await message.reply(

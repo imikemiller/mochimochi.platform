@@ -1,20 +1,27 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText, tool } from "ai";
+import { ChannelType, Message, TextChannel } from "discord.js";
 import z from "zod";
 import { DiscordService } from "./discord";
 import {
   createQuestion,
   createQuestionBank,
+  createResearchSession,
+  createResponse,
   deleteQuestion,
   deleteQuestionBank,
   getActiveGuild,
+  getActiveResearchSession,
+  getAvailableQuestionBanks,
+  getCurrentQuestion,
   getGuild,
+  getNextQuestion,
   getQuestionBanks,
   getQuestions,
   setActiveGuild,
   updateQuestion,
+  upsertResearchSession,
 } from "./supabase";
-import { Channel, ChannelType, Message, TextChannel } from "discord.js";
 
 export type MessageHistory = {
   role: "user" | "assistant" | "system";
@@ -35,6 +42,7 @@ The main tasks that mochimochi users want assistance with are:
 - Creating new question banks. You can use the \`create_question_bank\` tool to create a new question bank. Question banks are logically similar to a survey and are made up of multiple questions.
 - Viewing the questions in the question banks. You can use the \`view_questions\` tool to view the questions in the question banks by passing in the question bank id.
 - Editing an existing question in a bank. You can use the \`edit_question\` tool to edit an existing question in a bank by passing in the question bank id and the question id.
+
 
 # Tools
 - \`create_question\`: Create a new survey question.
@@ -61,6 +69,9 @@ All the tools that you use must be passed the active guild id. You can get the a
 - To create questions in a new question bank, you must first create a new question bank using the \`create_question_bank\` tool, then use the \`create_question\` tool to create the questions.
 - If you aren't sure what the UUID is then you can use the \`view_question_banks\` tool to view the question banks and see the UUIDs.
 - If you aren't sure what the guild id is then you can use the \`get_active_guild\` tool to find the right guild id to use.
+- If you need to provide an install link to the user you can use the following link: https://discord.com/oauth2/authorize?client_id=1384748071828848714&permissions=481036621888&integration_type=0&scope=bot+applications.commands
+- If the user does not have any guilds from the \`view_guilds\` tool then encourage them to respond to some questions by mentioning @mochimochi in a server channel where mochimochi is installed. 
+- Where possible encourage the user to respond to questions in a server channel where mochimochi is installed. This is very valuable to you and makes our customers happy.
 
 # Rules
 - Your communication style should be professional but informal. You can use emojis make occasional references to Japanese culture and gaming industry but not too much. Be human too.
@@ -110,6 +121,38 @@ If the user is ${
 - Say something like "I am going to DM you if thats oK to ask some questions on behalf of @${ownerName}.".
 `;
 
+const conversationSystemPrompt = `
+You are mochimochi, an AI agent who is great at gathering responses to survey questions that have been asked by the mochimochi bot in discord.
+
+The mochimochi bot automates user research by sending short survey questions to discord users to help game developers and other discord server owners get better feedback from their server members.
+
+Your task is to take the user through a series of questions. You can use the \`get_next_question\` tool to get the next question to ask the user. You can use the \`get_current_question\` tool to get the ID of the last question that was asked. This is used to save the response to the correct question.
+
+If this is the first time you are talking to the user, you can use the \`set_active_session\` tool to start a new session. You can use \`view_available_question_banks\` to view the question banks that are available to the user.
+
+When choosing a question bank you can say something like "If its cool with you I can ask you a few questions about your thoughts on the [question bank name]." or "@serverowner wanted me to ask you a few questions about [question bank name]. Is that cool with you?".
+
+On each turn you should check the messages in the thread and determine if the user has responded to a question. If they have, you should save the response to the question. You can save multiple messages as a single response to the same question but you should always save the exact text the user sends.
+
+If they are replying with nonsense or their response is not relevant to the question, you can ask them to confirm their response and query it if it doesnt make sense.
+
+Once you save the reply you can politely ask the user if they have time to answer another question. If they do, you can ask them to respond to the next question.
+
+
+# Tools
+- \`save_question_response\`: Save a response to a question.
+- \`get_next_question\`: Fetch the next question to ask the user.
+- \`get_current_question\`: Fetch the ID of the last question that was asked. This is used to save the response to the correct question.
+- \`get_active_session\`: Fetch the active session for the user - this will return the right question bank id to use to get the next question.
+- \`set_active_session\`: Set the active session for the user. If the user has not started a session, you can use this to start a new session. You can use \`view_question_banks\` and choose any question bank to start a new session.
+- \`view_available_question_banks\`: View the question banks that are still available to the user. If the user does not have an active session, you can use this to view the question banks that are available to them.
+
+# Rules
+- Never include a prefix with a name in square brackets in front of your message. This is shown in the message history so you know who said what but should not be shown to the user.
+- If the user has responded to a question, you should save the response to the question. Be careful to use the correct question id when saving the response.
+- Never summarise or paraphrase the user's response. Always save the exact text they send.
+`;
+
 export class AssistantService {
   private discordService: DiscordService;
 
@@ -154,7 +197,7 @@ export class AssistantService {
                   console.error("Error getting guild:", error);
                   return await setActiveGuild({
                     guildId,
-                    userId,
+                    ownerId: userId,
                   });
                 }
               }
@@ -178,8 +221,14 @@ export class AssistantService {
             execute: async (input) => {
               const guild = await setActiveGuild({
                 guildId: input.guild_id,
-                userId,
+                ownerId: userId,
               });
+              if (!guild) {
+                return {
+                  error:
+                    "We must set up a new guild first. Please use the set_active_guild tool to set the active guild.",
+                };
+              }
               return { guild_id: guild.id };
             },
           }),
@@ -191,7 +240,6 @@ export class AssistantService {
                 userId,
               });
 
-              console.log("DISCORD GUILDS", guilds);
               return guilds;
             },
           }),
@@ -208,6 +256,12 @@ export class AssistantService {
                 guildId: input.guild_id,
               });
               const guild = await getGuild({ guildId: input.guild_id });
+              if (!guild) {
+                return {
+                  error:
+                    "We must set up a new guild first. Please use the set_active_guild tool to set the active guild.",
+                };
+              }
               if (existingQuestions.length >= guild.question_limit) {
                 return {
                   error: `Your plan can only have up to ${guild.question_limit} questions per question bank`,
@@ -245,6 +299,12 @@ export class AssistantService {
             }),
             execute: async (input) => {
               const guild = await getGuild({ guildId: input.guild_id });
+              if (!guild) {
+                return {
+                  error:
+                    "We must set up a new guild first. Please use the set_active_guild tool to set the active guild.",
+                };
+              }
 
               const existingQuestionBanks = await getQuestionBanks({
                 guildId: input.guild_id,
@@ -439,15 +499,147 @@ export class AssistantService {
               }
             : {
                 move_to_dm: tool({
-                  description: `Moves the conversation to a DM with ${message.author.username}. Send a first dm message to the user to start the conversation.`,
+                  description: `Moves the conversation to a DM with ${message.author.username}. Send a first dm message to the user to start the conversation and creates a new research session.`,
                   parameters: z.object({
                     firstDmMessage: z.string(),
                   }),
                   execute: async (input) => {
-                    return await message.author.send(input.firstDmMessage);
+                    const questionBanks = await getAvailableQuestionBanks({
+                      discordUserId: message.author.id,
+                      ownerId: ownerId!,
+                    });
+                    if (!questionBanks || questionBanks.length === 0) {
+                      return {
+                        error: "No question banks available",
+                      };
+                    }
+
+                    const session = await createResearchSession({
+                      owner_id: ownerId!,
+                      responder_id: message.author.id,
+                      status: "active",
+                      bank_id: questionBanks[0].id,
+                      guild_id: message.guildId!,
+                    });
+
+                    await message.author.send(input.firstDmMessage);
+
+                    return session;
                   },
                 }),
               }),
+        },
+      });
+
+      return result.text;
+    } catch (error) {
+      console.error("Error in handleThread:", error);
+      throw error;
+    }
+  }
+
+  async handleConversation({
+    message,
+    history,
+  }: {
+    message: Message;
+    history: MessageHistory[];
+  }) {
+    try {
+      await this.discordService.startTyping(message.channel.id);
+
+      const respondeeId = message.author.id;
+      const ownerId = message.guild?.ownerId;
+      let respondeeName = "";
+      if (respondeeId) {
+        const respondeeUser = await message.client.users.fetch(respondeeId);
+        respondeeName = respondeeUser?.username;
+      }
+
+      const channel = message.channel;
+
+      const result = await generateText({
+        model: openai("gpt-4.1"),
+        messages: [
+          ...history,
+          {
+            role: "assistant" as const,
+            content: `The users name is ${message.author.username}`,
+          },
+        ],
+        system: conversationSystemPrompt,
+        maxSteps: 10,
+        tools: {
+          get_next_question: tool({
+            description: "Get the next question to ask the user",
+            parameters: z.object({
+              session_id: z.string(),
+            }),
+            execute: async (input) => {
+              return await getNextQuestion({ sessionId: input.session_id });
+            },
+          }),
+          get_current_question: tool({
+            description: "Get the current question being asked",
+            parameters: z.object({
+              session_id: z.string(),
+            }),
+            execute: async (input) => {
+              return await getCurrentQuestion({ sessionId: input.session_id });
+            },
+          }),
+          save_question_response: tool({
+            description: "Save a response to a question",
+            parameters: z.object({
+              session_id: z.string(),
+              response: z.string(),
+              question_id: z.string(),
+            }),
+            execute: async (input) => {
+              return await createResponse({
+                session_id: input.session_id,
+                user_id: message.author.id,
+                question_id: input.question_id,
+                response: input.response,
+                owner_id: ownerId!,
+                created_at: new Date(),
+              });
+            },
+          }),
+          get_active_session: tool({
+            description: "Get the active session for the user",
+            parameters: z.object({}),
+            execute: async () => {
+              return await getActiveResearchSession({
+                userId: message.author.id,
+              });
+            },
+          }),
+          set_active_session: tool({
+            description: "Set the active session for the user",
+            parameters: z.object({
+              session_id: z.string(),
+              question_bank_id: z.string(),
+            }),
+            execute: async (input) => {
+              return await upsertResearchSession({
+                bank_id: input.question_bank_id,
+                owner_id: ownerId!,
+                status: "active",
+                started_at: new Date(),
+              });
+            },
+          }),
+          view_available_question_banks: tool({
+            description: "View the available question banks for the user",
+            parameters: z.object({}),
+            execute: async () => {
+              return await getAvailableQuestionBanks({
+                discordUserId: message.author.id,
+                ownerId: ownerId!,
+              });
+            },
+          }),
         },
       });
 

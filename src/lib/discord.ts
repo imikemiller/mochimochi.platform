@@ -117,4 +117,17 @@ export class DiscordService {
         ?.permissions.has(["ManageGuild", "Administrator"])
     );
   }
+
+  // Get all guilds where the bot is installed
+  async getAllGuilds(): Promise<
+    Array<{ id: string; name: string; memberCount: number }>
+  > {
+    const guilds = this.client.guilds.cache.map((guild) => ({
+      id: guild.id,
+      name: guild.name,
+      memberCount: guild.memberCount || 0,
+    }));
+
+    return guilds;
+  }
 }
